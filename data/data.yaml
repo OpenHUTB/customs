@@ -1,0 +1,5 @@
+train: /kaggle/input/mask-detection/dataset/mydata/images/train
+val: /kaggle/input/mask-detection/dataset/mydata/images/val
+
+nc: 3
+names: ["without_mask", "with_mask", "mask_weared_incorrect"]
