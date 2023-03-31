@@ -18,3 +18,11 @@ python detection.py --source 文件 --weight 权重
 ### 样例
 ![image](https://user-images.githubusercontent.com/63147033/228762133-f1dcc023-e335-4727-a67a-fbd43c66fb94.png)
 
+
+# 参与人
+
+人脸识别 ---- [周易鹏](https://github.com/eduujspeng) 
+
+项目管理 ---- [王海东](https://github.com/donghaiwang)
+
+
