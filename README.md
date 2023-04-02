@@ -25,3 +25,5 @@ python detection.py --source 文件 --weight 权重
 
 项目管理 ---- [王海东](https://github.com/donghaiwang)
 
+步态识别 ---- [宋书越](https://github.com/coding-ssy) 
+
