@@ -1,0 +1,20 @@
+<RCC>
+    <qresource prefix="/new/prefix1">
+        <file>20.ico</file>
+        <file>103.bmp</file>
+        <file>120.bmp</file>
+        <file>430.bmp</file>
+        <file>BLD.BMP</file>
+        <file>cut.bmp</file>
+        <file>DBLUNDR.BMP</file>
+        <file>exit.bmp</file>
+        <file>images.qrc</file>
+        <file>img.qrc</file>
+        <file>ITL.BMP</file>
+        <file>new2.bmp</file>
+        <file>open3.bmp</file>
+        <file>paste.bmp</file>
+        <file>UNDRLN.BMP</file>
+        <file>WORDUNDR.BMP</file>
+    </qresource>
+</RCC>
