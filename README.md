@@ -21,9 +21,13 @@ python detection.py --source 文件 --weight 权重
 
 # 贡献者
 
-人脸识别 ---- [周易鹏](https://github.com/eduujspeng) 
+系统集成 ---- [李强](https://github.com/maninbule)
 
 项目管理 ---- [王海东](https://github.com/donghaiwang)
 
+人脸检测、识别 ---- [周易鹏](https://github.com/eduujspeng) 、[luoxi4563](https://github.com/luoxi4563)
+
 步态识别 ---- [宋书越](https://github.com/coding-ssy) 
+
+高抗伪   ---- [廖倩倩](https://github.com/nuonuo0426)
 
