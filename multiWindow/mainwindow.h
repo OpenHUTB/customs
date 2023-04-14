@@ -19,6 +19,19 @@ public:
 private slots:
     void on_ShowChart_triggered();
 
+    void on_ShowChart_triggered(bool checked);
+
+    void on_action_triggered();
+
+    void on_action_2_triggered();
+
+    void on_action_3_triggered();
+
+    void on_action_4_triggered();
+
+    void init();
+
+
 private:
     Ui::MainWindow *ui;
 };
