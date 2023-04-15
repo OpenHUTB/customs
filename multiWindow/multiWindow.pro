@@ -27,11 +27,19 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    chartwidget.cpp
+    chartwidget.cpp \
+    siglechartwidget.cpp \
+    monthpredictchartwidget.cpp \
+    perdayerror.cpp \
+    erroronday.cpp
 
 HEADERS += \
         mainwindow.h \
-    chartwidget.h
+    chartwidget.h \
+    siglechartwidget.h \
+    monthpredictchartwidget.h \
+    perdayerror.h \
+    erroronday.h
 
 FORMS += \
         mainwindow.ui
