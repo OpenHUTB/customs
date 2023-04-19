@@ -1,74 +1,66 @@
 import cv2
-import torch
-from facenet_pytorch import MTCNN, InceptionResnetV1
+from insightface.app import FaceAnalysis
 import numpy as np
-from time import time
-from utils.utils import Alignment_1
+import time
 
-# 加载人脸检测和特征提取模型
-mtcnn = MTCNN(keep_all=True)
-facenet = InceptionResnetV1(pretrained='vggface2').eval()
+# 加载模型
+app = FaceAnalysis(root="./", allowed_modules=['detection', 'recognition'])  # enable detection model only
+app.prepare(ctx_id=0, det_size=(640, 640))
 
-# 加载人脸库.pt文件和名字列表.npy文件
-face_db = torch.load('model_data/face_db.pt')
+# 加载人脸库文件和名字列表文件
 names = np.load('model_data/names.npy', allow_pickle=True)
+face_db = np.load('model_data/face_db.npy', allow_pickle=True)
 
-def recognize(draw, threshold):
-    #   人脸识别
-    #   先定位，再进行数据库匹配
-    height, width, _ = np.shape(draw)
-    draw_rgb = cv2.cvtColor(draw, cv2.COLOR_BGR2RGB)
+#   比较人脸
+def compare_faces(known_face_encodings, face_encoding_to_check, tolerance=1):
 
-    #   检测人脸
-    faces = mtcnn(draw_rgb)
-    boxs, pros, lams = mtcnn.detect(draw_rgb, landmarks=True)
+    if len(known_face_encodings) == 0:
+        return np.empty((0))
+    dis = np.linalg.norm(known_face_encodings - face_encoding_to_check, axis=1)
 
-    #   对检测到的人脸进行编码
-    if faces is not None:
-        # 利用人脸关键点进行人脸对齐
-        # new_faces, new_lams = Alignment_1(faces, lams)
-        # new_faces = Alignment_1(faces, lams)
-        # 编码
-        embeddings = facenet(faces)
-        embeddings = embeddings / embeddings.norm(2, dim=1, keepdim=True)
+    return list(dis <= tolerance), dis
 
-        face_names = []
-        for face, emb in zip(faces, embeddings):
+def face_recognition(image):
 
-            # 在第零维扩展一个维度
-            emb = emb.unsqueeze(0)
-            # 计算待识别人脸与库中所有人脸的相似度
-            similarity = torch.matmul(face_db, torch.transpose(emb, 0, 1)).flatten()
-            # 找到最相似的人脸
-            best_match_index = similarity.argmax().item()
+    dimg = image.copy()
+    img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    faces = app.get(img_rgb)
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
-            # 从数据库中匹配人脸
-            if similarity[best_match_index] > threshold:
-                name = names[best_match_index]
-                face_names.append(name)
-            else:
-                face_names.append("UnKnow")
+    for face in faces:
+        embedding = face.normed_embedding
+        matches, face_distances = compare_faces(face_db, embedding)
+        name = "Unknown"
+        #   取出这个最近人脸的评分
+        #   取出当前输入进来的人脸，最接近的已知人脸的序号
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = names[best_match_index]
 
-        # 显示检测结果并标出人脸框和名字
-        for (left, top, right, bottom), name, pro in zip(boxs, face_names, pros):
-            left = int(left)
-            top = int(top)
-            right = int(right)
-            bottom = int(bottom)
-            if name == "UnKnow":
-                cv2.rectangle(draw, (left, top), (right, bottom), (255, 0, 0), 2)
-            else:
-                cv2.rectangle(draw, (left, top), (right, bottom), (0, 255, 0), 2)
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            cv2.putText(draw, name, (left, bottom - 10), font, 0.5, (255, 255, 255), 1)
-            cv2.putText(draw, f"{pro:.2f}", (left, top + 15), font, 0.5, (255, 255, 255), 1)
-        for points in lams:
-            for i in points:
-                cv2.circle(draw, (int(i[0]),int(i[1])), 1, (0, 0, 255), 4)
+        box = face.bbox.astype(int)
+        pro = "{:.4f}".format(face.det_score)
 
-    return draw
+        if name =="Unknown":
+            color = (0, 0, 255)
+        else:
+            color = (0, 255, 0)
 
-if __name__=="__main__":
+        cv2.rectangle(dimg, (box[0], box[1]), (box[2], box[3]), color, 1)
+        cv2.putText(dimg, name, (box[0], box[3] - 12), font, 0.5, (255, 255, 255), 1)
+        cv2.putText(dimg, pro, (box[0], box[1] + 12), font, 0.5, (255, 255, 255), 1)
+
+        if face.kps is not None:
+            kps = face.kps.astype(int)
+            # print(landmark.shape)
+            for l in range(kps.shape[0]):
+                color = (255, 0, 0)
+                if l == 0 or l == 3:
+                    color = (0, 255, 0)
+                cv2.circle(dimg, (kps[l][0], kps[l][1]), 1, color, 2)
+
+    return dimg
+
+if __name__ == "__main__":
 
     # ----------------------------------------------------------------------------------------------------------#
     #   mode用于指定测试的模式：
@@ -86,9 +78,14 @@ if __name__=="__main__":
     #   video_path、video_save_path和video_fps仅在mode='video'时有效
     #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
     # ----------------------------------------------------------------------------------------------------------#
-    video_path = 0
-    video_save_path = ""
+    video_path = r"C:\Users\97205\Desktop\mp4\pedestrian street3.mp4"
+    video_save_path = r"out-2.mp4"
     video_fps = 25.0
+    # -------------------------------------------------------------------------#
+    #   test_interval用于指定测量fps的时候，图片检测的次数
+    #   理论上test_interval越大，fps越准确。
+    # -------------------------------------------------------------------------#
+    test_interval = 100
     # -------------------------------------------------------------------------#
     #   dir_origin_path指定了用于检测的图片的文件夹路径
     #   dir_save_path指定了检测完图片的保存路径
@@ -98,14 +95,7 @@ if __name__=="__main__":
     dir_save_path = "img_out/"
 
     if mode == "predict":
-        '''
-        predict.py有几个注意点
-        1、无法进行批量预测，如果想要批量预测，可以利用os.listdir()遍历文件夹，利用cv2.imread打开图片文件进行预测。
-        2、如果想要保存，利用cv2.imwrite("img.jpg", r_image)即可保存。
-        3、如果想要获得框的坐标，可以进入detect_image函数，读取(b[0], b[1]), (b[2], b[3])这四个值。
-        4、如果想要截取下目标，可以利用获取到的(b[0], b[1]), (b[2], b[3])这四个值在原图上利用矩阵的方式进行截取。
-        5、在更换facenet网络后一定要重新进行人脸编码，运行encoding.py。
-        '''
+
         while True:
             img = input('Input image filename:')
             image = cv2.imread(img)
@@ -113,16 +103,17 @@ if __name__=="__main__":
                 print('Open Error! Try again!')
                 continue
             else:
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                r_image = recognize(image, 0.7)
-                r_image = cv2.cvtColor(r_image, cv2.COLOR_RGB2BGR)
-                cv2.imshow("after", r_image)
+
+                image = face_recognition(image)
+
+                # r_image = cv2.cvtColor(r_image, cv2.COLOR_RGB2BGR)
+                cv2.imshow("after", image)
                 cv2.waitKey(0)
 
     elif mode == "video":
         capture = cv2.VideoCapture(video_path)
         if video_save_path != "":
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             size = (int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)), int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
             out = cv2.VideoWriter(video_save_path, fourcc, video_fps, size)
 
@@ -132,20 +123,14 @@ if __name__=="__main__":
 
         fps = 0.0
         while (True):
-            t1 = time()
+            t1 = time.time()
             # 读取某一帧
             ref, frame = capture.read()
             if not ref:
                 break
-            # 格式转变，BGRtoRGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # 进行检测
-            frame = recognize(frame, 0.7)
-            # RGBtoBGR满足opencv显示格式
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            frame = face_recognition(frame)
 
-            fps = (fps + (1. / (time() - t1))) / 2
-            print("fps= %.2f" % (fps))
+            fps = (fps + (1. / (time.time() - t1))) / 2
             frame = cv2.putText(frame, "fps= %.2f" % (fps), (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv2.imshow("video", frame)
@@ -165,6 +150,7 @@ if __name__=="__main__":
 
     elif mode == "dir_predict":
         import os
+
         from tqdm import tqdm
 
         img_names = os.listdir(dir_origin_path)
@@ -173,11 +159,9 @@ if __name__=="__main__":
                     ('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
                 image_path = os.path.join(dir_origin_path, img_name)
                 image = cv2.imread(image_path)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                r_image = recognize(image, 0.5)
-                r_image = cv2.cvtColor(r_image, cv2.COLOR_RGB2BGR)
+                image = face_recognition(image)
                 if not os.path.exists(dir_save_path):
                     os.makedirs(dir_save_path)
-                cv2.imwrite(os.path.join(dir_save_path, img_name), r_image)
+                cv2.imwrite(os.path.join(dir_save_path, img_name), image)
     else:
         raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps' or 'dir_predict'.")

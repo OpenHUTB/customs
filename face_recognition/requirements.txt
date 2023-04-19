@@ -1,6 +1,4 @@
-facenet_pytorch==2.5.3
-numpy==1.23.5
-opencv_python==4.7.0.72
-Pillow==9.5.0
-torch==2.0.0
-tqdm==4.65.0
+insightface
+numpy
+tqdm
+opencv-python
