@@ -4,9 +4,7 @@
 torch == 1.2.0
 
 ## 文件下载
-数据集文件可在百度网盘下载：
-链接：https://pan.baidu.com/s/1-HG6Mulo1XklABQZ3bvStQ
-提取码：5421
+数据集文件可在[百度网盘链接](https://pan.baidu.com/s/1-HG6Mulo1XklABQZ3bvStQ) 下载，提取码：5421
 
 权重文件：\runs\train\exp\weights
 
