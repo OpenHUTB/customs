@@ -23,7 +23,7 @@ python detection.py --source 文件 --weight 权重
 
 项目管理 ---- [王海东](https://github.com/donghaiwang)
 
-人脸检测、识别 ---- [周易鹏](https://github.com/eduujspeng) 、[luoxi4563](https://github.com/luoxi4563)
+人脸检测、识别 ---- [周易鹏](https://github.com/eduujspeng) 、[谭孝文](https://github.com/luoxi4563)
 
 步态识别 ---- [宋书越](https://github.com/coding-ssy) 
 
