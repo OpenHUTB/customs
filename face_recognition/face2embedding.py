@@ -3,11 +3,12 @@ from insightface.app import FaceAnalysis
 from tqdm import tqdm
 import os
 import numpy as np
-
+model_name=['buffalo_l', 'antelopev2', 'buffalo_sc']
 
 def face2embedding(img_path: str, save_path: str):
     # 加载模型
-    app = FaceAnalysis(root="./", allowed_modules=['detection', 'recognition'])  # enable detection model only
+    app = FaceAnalysis(root="./", name=model_name[0], providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                       allowed_modules=['detection', 'recognition'])  # enable detection model only
     app.prepare(ctx_id=0, det_size=(640, 640))
 
     # 读取数据

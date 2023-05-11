@@ -4,7 +4,10 @@ import numpy as np
 import time
 
 # 加载模型
-app = FaceAnalysis(root="./", allowed_modules=['detection', 'recognition'])  # enable detection model only
+model_name=['buffalo_l', 'antelopev2', 'buffalo_sc'] # 选择模型
+
+app = FaceAnalysis(root="./", name=model_name[0], providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+                       allowed_modules=['detection', 'recognition'])  # enable detection model only
 app.prepare(ctx_id=0, det_size=(640, 640))
 
 # 加载人脸库文件和名字列表文件
@@ -78,8 +81,10 @@ if __name__ == "__main__":
     #   video_path、video_save_path和video_fps仅在mode='video'时有效
     #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
     # ----------------------------------------------------------------------------------------------------------#
-    video_path = r"C:\Users\97205\Desktop\mp4\pedestrian street3.mp4"
-    video_save_path = r"out-2.mp4"
+    video_path = r"C:\Users\97205\Desktop\02.mp4"
+    # video_path = 0
+    video_save_path = r"img_out\02-out.mp4"
+    # video_save_path = ''
     video_fps = 25.0
     # -------------------------------------------------------------------------#
     #   test_interval用于指定测量fps的时候，图片检测的次数
