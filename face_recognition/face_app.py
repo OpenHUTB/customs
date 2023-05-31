@@ -120,7 +120,7 @@ class FaceRecognition(object):
                 embedding, face_img = self.rec_model.get(img, kps[0])
                 if sava_face:
                     save_face_path = "faces"
-                    if os.path.exists(save_face_path):
+                    if not os.path.exists(save_face_path):
                         os.makedirs(save_face_path)
                     cv2.imencode('.jpg', face_img)[1].tofile(os.path.join(save_face_path, file))
                 embeddings.append(embedding)

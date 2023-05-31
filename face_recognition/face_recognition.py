@@ -23,10 +23,10 @@ if __name__ == "__main__":
     #   video_path、video_save_path和video_fps仅在mode='video'时有效
     #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
     # ----------------------------------------------------------------------------------------------------------#
-    video_path = r"D:\Code\datasets\face data\del\video_21.mp4"
-    # video_path = 0
-    video_save_path = r"img_out\video_21-out.mp4"
-    # video_save_path = ''
+    # video_path = r"D:\Code\datasets\face data\del\video_21.mp4"
+    video_path = 0
+    # video_save_path = r"img_out\video_21-out.mp4"
+    video_save_path = ''
     video_fps =15.0
     # -------------------------------------------------------------------------#
     #   dir_origin_path指定了用于检测的图片的文件夹路径
