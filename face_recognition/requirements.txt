@@ -1,4 +1,8 @@
-insightface
-numpy
-tqdm
-opencv-python
+insightface==0.7.3
+numpy==1.23.5
+tqdm==4.65.0
+opencv-python~=4.7.0.72
+onnxruntime~=1.10.0
+onnx~=1.13.1
+scikit-image~=0.20.0
+pillow~=9.4.0
