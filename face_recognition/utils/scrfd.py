@@ -85,16 +85,15 @@ class SCRFD:
 
     def _init_vars(self):
         input_cfg = self.session.get_inputs()[0]
-        input_shape = input_cfg.shape
-        # print(input_shape)
-        if isinstance(input_shape[2], str):
+        input_shape = input_cfg.shape   # input shape = [1,3,?,?] name=input.1
+        if isinstance(input_shape[2], str):     # print(input_shape)
             self.input_size = None
         else:
             self.input_size = tuple(input_shape[2:4][::-1])
         # print('image_size:', self.image_size)
         input_name = input_cfg.name
         self.input_shape = input_shape
-        outputs = self.session.get_outputs()
+        outputs = self.session.get_outputs()         # len(outputs=9)
         if len(outputs[0].shape) == 3:
             self.batched = True
         output_names = []
@@ -150,13 +149,13 @@ class SCRFD:
         kpss_list = []
         input_size = tuple(img.shape[0:2][::-1])
         blob = cv2.dnn.blobFromImage(img, 1.0 / self.input_std, input_size,
-                                     (self.input_mean, self.input_mean, self.input_mean), swapRB=True)
+                                     (self.input_mean, self.input_mean, self.input_mean), swapRB=True) # 图像预处理步骤，用于标准化图像
         net_outs = self.session.run(self.output_names, {self.input_name: blob})
 
-        input_height = blob.shape[2]
+        input_height = blob.shape[2] # blob[1,3,1280,1280]
         input_width = blob.shape[3]
         fmc = self.fmc
-        for idx, stride in enumerate(self._feat_stride_fpn):
+        for idx, stride in enumerate(self._feat_stride_fpn): # _feat_stride_fpn=[8,16,32],表示不同下采样倍率下的输出结果
             # If model support batch dim, take first output
             if self.batched:
                 scores = net_outs[idx][0]
@@ -166,11 +165,11 @@ class SCRFD:
                     kps_preds = net_outs[idx + fmc * 2][0] * stride
             # If model doesn't support batching take output as is
             else:
-                scores = net_outs[idx]
-                bbox_preds = net_outs[idx + fmc]
+                scores = net_outs[idx]      #模型第一个输出为置信度，维度为[51200,1]
+                bbox_preds = net_outs[idx + fmc]    #模型的第四个输出，维度为[51200,4]
                 bbox_preds = bbox_preds * stride
                 if self.use_kps:
-                    kps_preds = net_outs[idx + fmc * 2] * stride
+                    kps_preds = net_outs[idx + fmc * 2] * stride    #模型的第四个输出，人脸关键点坐标，维度为[51200,10]
 
             height = input_height // stride
             width = input_width // stride
@@ -216,13 +215,13 @@ class SCRFD:
                 kpss_list.append(pos_kpss)
         return scores_list, bboxes_list, kpss_list
 
-    def detect(self, img, input_size=None, thresh=None, max_num=0, metric='default'):
+    def detect(self, img, input_size=None, thresh=None, max_num=0, metric='max'):
         assert input_size is not None or self.input_size is not None
         input_size = self.input_size if input_size is None else input_size
 
-        im_ratio = float(img.shape[0]) / img.shape[1]
-        model_ratio = float(input_size[1]) / input_size[0]
-        if im_ratio > model_ratio:
+        im_ratio = float(img.shape[0]) / img.shape[1]   # 输入图片比例
+        model_ratio = float(input_size[1]) / input_size[0]  # 模型输入比例
+        if im_ratio > model_ratio:  # 按照输入图片比例等比例缩放输入图片
             new_height = input_size[1]
             new_width = int(new_height / im_ratio)
         else:
@@ -234,18 +233,18 @@ class SCRFD:
         det_img[:new_height, :new_width, :] = resized_img
         det_thresh = thresh if thresh is not None else self.det_thresh
 
-        scores_list, bboxes_list, kpss_list = self.forward(det_img, det_thresh)
-
+        scores_list, bboxes_list, kpss_list = self.forward(det_img, det_thresh) # 返回检测到的人脸检测结果
+        # 对模型输出的结果进行处理，然后使用非极大值抑制，得到最后的检测结果
         scores = np.vstack(scores_list)
-        scores_ravel = scores.ravel()
+        scores_ravel = scores.ravel() # 降维
         order = scores_ravel.argsort()[::-1]
         bboxes = np.vstack(bboxes_list) / det_scale
         if self.use_kps:
             kpss = np.vstack(kpss_list) / det_scale
-        pre_det = np.hstack((bboxes, scores)).astype(np.float32, copy=False)
-        pre_det = pre_det[order, :]
-        keep = self.nms(pre_det)
-        det = pre_det[keep, :]
+        pre_det = np.hstack((bboxes, scores)).astype(np.float32, copy=False)    # 维度[n,5]，其中n为置信度大于阈值的框数量
+        pre_det = pre_det[order, :]     # 从大到小排列框
+        keep = self.nms(pre_det)    # 非极大值抑制，输出要保存检测框的序号
+        det = pre_det[keep, :]      # 得到非极大值抑制后的检测结果和置信度
         if self.use_kps:
             kpss = kpss[order, :, :]
             kpss = kpss[keep, :, :]
@@ -261,22 +260,30 @@ class SCRFD:
             ])
             offset_dist_squared = np.sum(np.power(offsets, 2.0), 0)
             if metric == 'max':
-                values = area
+                values = area[area > 12544]
             else:
                 values = area - offset_dist_squared * 2.0  # some extra weight on the centering
-            bindex = np.argsort(
-                values)[::-1]  # some extra weight on the centering
+            bindex = np.argsort(values)[::-1]  # some extra weight on the centering
             bindex = bindex[0:max_num]
             det = det[bindex, :]
             if kpss is not None:
                 kpss = kpss[bindex, :]
+
+        # area = (det[:, 2] - det[:, 0]) * (det[:, 3] - det[:, 1])
+        # values = area[area > 12544]
+        # bindex = np.argsort(values)[::-1]  # some extra weight on the centering
+        # # bindex = bindex[0:max_num]
+        # det = det[bindex, :]
+        # if kpss is not None:
+        #     kpss = kpss[bindex, :]
         return det, kpss
 
     def autodetect(self, img, max_num=0, metric='max'):
         bboxes, kpss = self.detect(img, input_size=(640, 640), thresh=0.5)
         bboxes2, kpss2 = self.detect(img, input_size=(128, 128), thresh=0.5)
-        bboxes_all = np.concatenate([bboxes, bboxes2], axis=0)
-        kpss_all = np.concatenate([kpss, kpss2], axis=0)
+        bboxes3, kpss3 = self.detect(img, input_size=(320, 320), thresh=0.5)
+        bboxes_all = np.concatenate([bboxes, bboxes2, bboxes3], axis=0)
+        kpss_all = np.concatenate([kpss, kpss2, kpss3], axis=0)
         keep = self.nms(bboxes_all)
         det = bboxes_all[keep, :]
         kpss = kpss_all[keep, :]
@@ -300,7 +307,7 @@ class SCRFD:
             if kpss is not None:
                 kpss = kpss[bindex, :]
         return det, kpss
-
+    # 非极大值抑制
     def nms(self, dets):
         thresh = self.nms_thresh
         x1 = dets[:, 0]

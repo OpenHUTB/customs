@@ -64,7 +64,8 @@ class ArcFaceONNX:
     def get(self, img, kps):
         aimg = face_align.norm_crop(img, landmark=kps, image_size=self.input_size[0])
         embedding = self.get_feat(aimg).flatten()
-        return embedding
+        normalized_embedding = embedding / np.linalg.norm(embedding)
+        return normalized_embedding, aimg
 
     def compute_sim(self, feat1, feat2):
         from numpy.linalg import norm

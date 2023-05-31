@@ -1,76 +1,12 @@
 import cv2
-import os
-import os.path as osp
+from face_app import FaceRecognition
 import numpy as np
 import time
-import onnxruntime
-from utils.scrfd import SCRFD
-from utils.arcface import ArcFaceONNX
 
-# 设置 ONNX Runtime 日志的默认级别
-onnxruntime.set_default_logger_severity(3)
-# onnx权重文件根目录
-assets_dir = osp.expanduser('models/buffalo_l')
-# 人脸检测网络
-detector = SCRFD(os.path.join(assets_dir, 'det_10g.onnx'))
-detector.prepare(0)
-# 人脸特征提取网络
-rec = ArcFaceONNX(os.path.join(assets_dir, 'w600k_r50.onnx'))
-rec.prepare(0)
-
-# 加载人脸库文件和名字列表文件
-names = np.load('model_data/names.npy', allow_pickle=True)
-face_db = np.load('model_data/face_db.npy', allow_pickle=True)
-
-# 比较人脸
-def compare_faces(known_face_encodings, face_encoding_to_check, tolerance=1.2):
-
-    if len(known_face_encodings) == 0:
-        return np.empty((0))
-    dis = np.linalg.norm(known_face_encodings - face_encoding_to_check, axis=1)
-    return list(dis <= tolerance), dis
-
-def face_recognition(image):
-
-    dimg = image.copy()
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    bboxes, kpss = detector.autodetect(image)
-    # 对每张人脸进行对比
-    for i in range(bboxes.shape[0]):
-        kps = kpss[i]
-        embedding = rec.get(image, kps)
-        normalized_embedding = embedding / np.linalg.norm(embedding)
-        matches, face_distances = compare_faces(face_db, normalized_embedding)
-        name = "Unknown"
-        #   取出这个最近人脸的评分
-        #   取出当前输入进来的人脸，最接近的已知人脸的序号
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
-            name = names[best_match_index]
-
-        box = bboxes[i][:-1].astype(int)
-        pro = "{:.2f}".format(bboxes[i][-1])
-
-        if name =="Unknown":
-            color = (0, 0, 255)
-        else:
-            color = (0, 255, 0)
-
-        cv2.rectangle(dimg, (box[0], box[1]), (box[2], box[3]), color, 1)
-        cv2.putText(dimg, name, (box[0], box[3] - 12), font, 0.5, (255, 255, 255), 1)
-        cv2.putText(dimg, pro, (box[0], box[1] + 12), font, 0.5, (255, 255, 255), 1)
-
-        kps = kps.astype(np.int32)
-        for l in range(kps.shape[0]):
-            color = (255, 0, 0)
-            if l == 0 or l == 3:
-                color = (0, 255, 0)
-            cv2.circle(dimg, (kps[l][0], kps[l][1]), 1, color, 2)
-
-    return dimg
 
 if __name__ == "__main__":
 
+    app = FaceRecognition(0)
     # ----------------------------------------------------------------------------------------------------------#
     #   mode用于指定测试的模式：
     #   'predict'表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
@@ -87,9 +23,11 @@ if __name__ == "__main__":
     #   video_path、video_save_path和video_fps仅在mode='video'时有效
     #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
     # ----------------------------------------------------------------------------------------------------------#
-    video_path = 0
-    video_save_path = ''
-    video_fps = 25.0
+    video_path = r"D:\Code\datasets\face data\del\video_21.mp4"
+    # video_path = 0
+    video_save_path = r"img_out\video_21-out.mp4"
+    # video_save_path = ''
+    video_fps =15.0
     # -------------------------------------------------------------------------#
     #   dir_origin_path指定了用于检测的图片的文件夹路径
     #   dir_save_path指定了检测完图片的保存路径
@@ -102,14 +40,13 @@ if __name__ == "__main__":
 
         while True:
             img = input('Input image filename:')
-            image = cv2.imread(img)
+            img = cv2.imdecode(np.fromfile(img, dtype=np.uint8), -1)
             if image is None:
                 print('Open Error! Try again!')
                 continue
             else:
 
-                image = face_recognition(image)
-
+                image = app.face_rec(image)
                 cv2.imshow("after", image)
                 cv2.waitKey(0)
 
@@ -125,13 +62,13 @@ if __name__ == "__main__":
             raise ValueError("未能正确读取摄像头（视频），请注意是否正确安装摄像头（是否正确填写视频路径）。")
 
         fps = 0.0
-        while (True):
+        while True:
             t1 = time.time()
             # 读取某一帧
             ref, frame = capture.read()
             if not ref:
                 break
-            frame = face_recognition(frame)
+            frame = app.face_rec(frame)
 
             fps = (fps + (1. / (time.time() - t1))) / 2
             frame = cv2.putText(frame, "fps= %.2f" % (fps), (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -162,7 +99,7 @@ if __name__ == "__main__":
                     ('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
                 image_path = os.path.join(dir_origin_path, img_name)
                 image = cv2.imread(image_path)
-                image = face_recognition(image)
+                image = app.face_rec(image)
                 if not os.path.exists(dir_save_path):
                     os.makedirs(dir_save_path)
                 cv2.imwrite(os.path.join(dir_save_path, img_name), image)
