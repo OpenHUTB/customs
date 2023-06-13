@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Streaming</title>
+  <script src="../static/js/jquery.min.js"></script>
+  <script src="../static/js/socket.io.min.js"></script>
+</head>
+<body>
+  <button id="start-btn">Start Camera</button>
+  <button id="stop-btn">stop</button>
+  <img id="video"  alt="" src=""/>
+
+  <script type="text/javascript">
+    var socket = io.connect();
+    $(document).ready(function (){
+        socket.on('connect', function() {
+          console.log('Connected to server');
+        });
+
+        socket.on('message', function(data) {
+            $('#video').attr('src', 'data:image/jpeg;base64,' + data);
+        });
+
+        $('#start-btn').click(function(){
+          socket.emit('start_camera', {});
+        });
+
+        // 关闭流媒体
+        $('#stop-btn').click(function() {
+          socket.emit('stop_stream',{})
+        });
+    })
+
+  </script>
+
+</body>
+</html>
