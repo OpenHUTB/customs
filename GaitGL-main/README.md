@@ -5,6 +5,6 @@
 5.若路径中的文件数目发生变化要删除work/partition/CASIA-B_73_False.npy文件重新运行test1.py。
 6.output1和output2中存放了少量数据用于测试。
 7.模型文件链接如下。
-链接：https://pan.baidu.com/s/1y4ZbITzPzZuMKB3u2_WpAg?pwd=gait 
-提取码：gait
+链接: https://pan.baidu.com/s/1wy26Co5LK2wFm1L3sdZBUA?pwd=gait 
+提取码: gait
 将下载好的2个模型文件放在work/checkpoint/GaitGL中，即可运行。
