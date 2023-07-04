@@ -1,4 +1,5 @@
 from face_app import *
 
-app = FaceRecognition(1)
-app.face_to_embedding("face_dataset", save_face=False)
+app = FaceRecognition(0)
+app.face_to_embedding(r"face_dataset/photos", False)
+# app.add_face("face_dataset/谭孝文_02.jpg")
