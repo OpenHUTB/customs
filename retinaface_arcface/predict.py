@@ -1,18 +1,18 @@
-# ----------------------------------------------------#
-#   对视频中的predict.py进行了修改，
-#   将单张图片预测、摄像头检测和FPS测试功能
-#   整合到了一个py文件中，通过指定mode进行模式的修改。
-# ----------------------------------------------------#
+# -*- coding:utf-8 -*-
+# author:peng
+# Date：2023/7/3 19:41
+import os.path
 import time
-
+import faiss
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 
-from retinaface import Retinaface
-from util.utils import letterbox_image
+from retinaface_arcface import retinaface_arcface
+from utils.utils import letterbox_image, put_box_img
 
 if __name__ == "__main__":
-    retinaface = Retinaface()
+    retinaface = retinaface_arcface()
     # ----------------------------------------------------------------------------------------------------------#
     #   mode用于指定测试的模式：
     #   'predict'表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     #   'fps'表示测试fps，使用的图片是img里面的street.jpg，详情查看下方注释。
     #   'dir_predict'表示遍历文件夹进行检测并保存。默认遍历img文件夹，保存img_out文件夹，详情查看下方注释。
     # ----------------------------------------------------------------------------------------------------------#
-    mode = "video"
+    mode = "predict"
     # ----------------------------------------------------------------------------------------------------------#
     #   video_path用于指定视频的路径，当video_path=0时表示检测摄像头
     #   想要检测视频，则设置如video_path = "xxx.mp4"即可，代表读取出根目录下的xxx.mp4文件。
@@ -30,14 +30,9 @@ if __name__ == "__main__":
     #   video_path、video_save_path和video_fps仅在mode='video'时有效
     #   保存视频时需要ctrl+c退出或者运行到最后一帧才会完成完整的保存步骤。
     # ----------------------------------------------------------------------------------------------------------#
-    video_path = 'img/1683989579163.MP4'
-    video_save_path = "img/save.mp4"
+    video_path = 'img/peng_mask.mp4'
+    video_save_path = "img_out/camera_predict.mp4"
     video_fps = 25.0
-    # -------------------------------------------------------------------------#
-    #   test_interval用于指定测量fps的时候，图片检测的次数
-    #   理论上test_interval越大，fps越准确。
-    # -------------------------------------------------------------------------#
-    test_interval = 100
     # -------------------------------------------------------------------------#
     #   dir_origin_path指定了用于检测的图片的文件夹路径
     #   dir_save_path指定了检测完图片的保存路径
@@ -46,15 +41,19 @@ if __name__ == "__main__":
     dir_origin_path = "img/"
     dir_save_path = "img_out/"
 
+    # 加载数据
+    known_face_encodings = np.load("model_data/face_encoding.npy")
+    known_face_names = np.load("model_data/face_name.npy")
+    print('known_face_encodings:', known_face_encodings.shape)
+    print('known_face_names:', known_face_names.shape)
+    # 利用faiss构建索引进行排序查询
+    dim, measure = 512, faiss.METRIC_L2
+    # 详细了解参考：https://zhuanlan.zhihu.com/p/357414033
+    param = ['Flat', 'IVF100,Flat', 'PQ16', 'IVF100,PQ16', 'LSH', 'HNSW64']
+    index = faiss.index_factory(dim, param[0], measure)
+    index.add(known_face_encodings)
+
     if mode == "predict":
-        '''
-        predict.py有几个注意点
-        1、无法进行批量预测，如果想要批量预测，可以利用os.listdir()遍历文件夹，利用cv2.imread打开图片文件进行预测。
-        2、如果想要保存，利用cv2.imwrite("img.jpg", r_image)即可保存。
-        3、如果想要获得框的坐标，可以进入detect_image函数，读取(b[0], b[1]), (b[2], b[3])这四个值。
-        4、如果想要截取下目标，可以利用获取到的(b[0], b[1]), (b[2], b[3])这四个值在原图上利用矩阵的方式进行截取。
-        5、在更换facenet网络后一定要重新进行人脸编码，运行encoding.py。
-        '''
         while True:
             img = input('Input image filename:')
             image = cv2.imread(img)
@@ -63,11 +62,22 @@ if __name__ == "__main__":
                 continue
             else:
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                r_image = retinaface.detect_image(image)
-                r_image = cv2.cvtColor(r_image, cv2.COLOR_RGB2BGR)
-                r_image = letterbox_image(r_image, (800, 800)).astype(np.uint8)
-                cv2.imshow("after", r_image)
-                cv2.waitKey(0)
+                boxes_conf_landms, face_encodings = retinaface.detect_image(image)
+                if boxes_conf_landms is not None:
+                    print(boxes_conf_landms.shape, len(face_encodings))
+                    D, I = index.search(np.array(face_encodings), 1)
+                    for i, d in zip(I, D):
+                        name = known_face_names[i[0]]
+                        print('faiss name:', name)
+                        print('faiss distance:', d[0])
+                else:
+                    continue
+                # 画框
+                image = put_box_img(image, boxes_conf_landms, index, known_face_names, face_encodings)
+                r_image = letterbox_image(image, (800, 800)).astype(np.uint8)
+                plt.Figure()
+                plt.imshow(r_image)
+                plt.show()
                 break
 
     elif mode == "video":
@@ -91,19 +101,35 @@ if __name__ == "__main__":
             # 格式转变，BGRtoRGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # 进行检测
-            frame = retinaface.detect_image(frame)
-            # RGBtoBGR满足opencv显示格式
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            boxes_conf_landms, face_encodings = retinaface.detect_image(frame)
+            if boxes_conf_landms is None:
+                # RGBtoBGR满足opencv显示格式
+                frame = frame[:, :, ::-1]
+                cv2.imshow("video", frame)
+                c = cv2.waitKey(1) & 0xff
+                if video_save_path != "":
+                    if not os.path.exists('img_out'):
+                        os.mkdir('img_out')
+                    out.write(frame)
+                if c == 27:
+                    capture.release()
+                    break
+                continue
+            # 画框
+            frame = put_box_img(frame, boxes_conf_landms, known_face_encodings, known_face_names, face_encodings)
 
             fps = (fps + (1. / (time.time() - t1))) / 2
             print("fps= %.2f" % (fps))
             frame = cv2.putText(frame, "fps= %.2f" % (fps), (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # RGBtoBGR满足opencv显示格式
+            frame = frame[:, :, ::-1]
 
             cv2.imshow("video", frame)
             c = cv2.waitKey(1) & 0xff
             if video_save_path != "":
+                if not os.path.exists('img_out'):
+                    os.mkdir('img_out')
                 out.write(frame)
-
             if c == 27:
                 capture.release()
                 break
@@ -113,28 +139,3 @@ if __name__ == "__main__":
             print("Save processed video to the path :" + video_save_path)
             out.release()
         cv2.destroyAllWindows()
-
-    elif mode == "fps":
-        img = cv2.imread('img/obama.jpg')
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        tact_time = retinaface.get_FPS(img, test_interval)
-        print(str(tact_time) + ' seconds, ' + str(1 / tact_time) + 'FPS, @batch_size 1')
-    elif mode == "dir_predict":
-        import os
-
-        from tqdm import tqdm
-
-        img_names = os.listdir(dir_origin_path)
-        for img_name in tqdm(img_names):
-            if img_name.lower().endswith(
-                    ('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
-                image_path = os.path.join(dir_origin_path, img_name)
-                image = cv2.imread(image_path)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                r_image = retinaface.detect_image(image)
-                r_image = cv2.cvtColor(r_image, cv2.COLOR_RGB2BGR)
-                if not os.path.exists(dir_save_path):
-                    os.makedirs(dir_save_path)
-                cv2.imwrite(os.path.join(dir_save_path, img_name), r_image)
-    else:
-        raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps' or 'dir_predict'.")

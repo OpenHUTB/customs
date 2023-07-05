@@ -1,25 +1,26 @@
-from itertools import product as product
+# -*- coding:utf-8 -*-
+# author:peng
+# Date：2023/7/3 19:36
 from math import ceil
 
 import torch
-
-
+from itertools import product as product
 
 
 class Anchors(object):
     def __init__(self, cfg, image_size=None):
         super(Anchors, self).__init__()
-        self.min_sizes  = cfg['min_sizes']
-        self.steps      = cfg['steps']
-        self.clip       = cfg['clip']
-        #---------------------------#
+        self.min_sizes = cfg['min_sizes']
+        self.steps = cfg['steps']
+        self.clip = cfg['clip']
+        # ---------------------------#
         #   图片的尺寸
-        #---------------------------#
+        # ---------------------------#
         self.image_size = image_size
-        #---------------------------#
+        # ---------------------------#
         #   三个有效特征层高和宽
-        #---------------------------#
-        self.feature_maps = [[ceil(self.image_size[0]/step), ceil(self.image_size[1]/step)] for step in self.steps]
+        # ---------------------------#
+        self.feature_maps = [[ceil(self.image_size[0] / step), ceil(self.image_size[1] / step)] for step in self.steps]
 
     def get_anchors(self):
         anchors = []
@@ -27,9 +28,9 @@ class Anchors(object):
         for k, f in enumerate(self.feature_maps):
             # min_sizes : [[16, 32], [64, 128], [256, 512]]
             min_sizes = self.min_sizes[k]
-            #-----------------------------------------#
+            # -----------------------------------------#
             #   对特征层的高和宽进行循环迭代
-            #-----------------------------------------#
+            # -----------------------------------------#
             for i, j in product(range(f[0]), range(f[1])):  # 80*80*2+40*40*2+20*20*2
                 for min_size in min_sizes:
                     s_kx = min_size / self.image_size[1]
@@ -43,11 +44,3 @@ class Anchors(object):
         if self.clip:
             output.clamp_(max=1, min=0)
         return output
-
-if __name__ == '__main__':
-    from util.config import cfg_mnet
-    anchors = Anchors(cfg_mnet, image_size=(640,640)).get_anchors()
-    print(anchors,anchors.shape)
-
-    print(80*80*2+40*40*2+20*20*2)
-
